@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: CMS_BLOG_LATEST
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn cms_backend.wsgi:application
+    envVars:
+      - key: DEBUG
+        value: False
+      - key: ALLOWED_HOSTS
+        value: cms-blog-latest.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://cms-blog-frontend.vercel.app
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cms-blog-db
+          property: connectionString
+
+databases:
+  - name: cms-blog-db
+    databaseName: cms_blog
+    user: cms_blog_user
+    plan: free 
