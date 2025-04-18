@@ -130,6 +130,36 @@ DATABASE_URL=your_database_url
 ALLOWED_HOSTS=localhost,127.0.0.1
 ```
 
+## Deployment
+
+### Frontend Deployment (Vercel)
+1. Sign up for a free account at [Vercel](https://vercel.com)
+2. Install Vercel CLI:
+   ```bash
+   npm install -g vercel
+   ```
+3. Navigate to the frontend directory and run:
+   ```bash
+   vercel
+   ```
+4. Follow the prompts to deploy your frontend
+
+### Backend Deployment (Render)
+1. Sign up for a free account at [Render](https://render.com)
+2. Create a new Web Service
+3. Connect your GitHub repository
+4. Configure the following:
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `gunicorn cms_backend.wsgi:application`
+5. Add your environment variables in Render's dashboard
+6. Deploy your application
+
+Remember to update the following:
+- Frontend API base URL to point to your deployed backend
+- CORS settings in Django to allow your frontend domain
+- Set `DEBUG=False` in production
+- Configure a production-ready database (Render provides PostgreSQL)
+
 ## Contributing
 
 1. Fork the repository
