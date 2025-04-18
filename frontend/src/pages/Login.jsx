@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Avatar,
   Button,
@@ -8,6 +8,8 @@ import {
   Typography,
   Container,
   Alert,
+  Link,
+  Grid,
 } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useAuth } from '../context/AuthContext';
@@ -32,12 +34,25 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     try {
       await login(formData.username, formData.password);
       navigate('/');
     } catch (error) {
-      setError(error.response?.data?.detail || 'Failed to login. Please check your credentials.');
+      console.error('Login error:', error);
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (typeof errorData === 'object') {
+          const errorMessages = Object.entries(errorData)
+            .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+            .join('\n');
+          setError(errorMessages);
+        } else {
+          setError(errorData.detail || 'Invalid username or password');
+        }
+      } else {
+        setError('Login failed. Please try again.');
+      }
     }
   };
 
@@ -59,7 +74,7 @@ export default function Login() {
         </Typography>
         <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-line' }}>
               {error}
             </Alert>
           )}
@@ -95,6 +110,13 @@ export default function Login() {
           >
             Sign In
           </Button>
+          <Grid container justifyContent="center">
+            <Grid item>
+              <Link component={RouterLink} to="/register" variant="body2">
+                {"Don't have an account? Sign Up"}
+              </Link>
+            </Grid>
+          </Grid>
         </Box>
       </Box>
     </Container>

@@ -20,14 +20,15 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  CircularProgress
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
   ArrowBack as ArrowBackIcon,
   Add as AddIcon
 } from '@mui/icons-material';
-import axios from 'axios';
+import api from '../api/config';
 import { useAuth } from '../context/AuthContext';
 
 const PostForm = () => {
@@ -56,53 +57,17 @@ const PostForm = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/api/categories/');
-        if (response.data.length === 0) {
-          // Create default categories if none exist
-          const defaultCategories = [
-            { name: 'Travel', description: 'Travel experiences and destinations', slug: 'travel' },
-            { name: 'Education', description: 'Educational content and learning resources', slug: 'education' },
-            { name: 'Technology', description: 'Tech news, reviews, and tutorials', slug: 'technology' },
-            { name: 'Lifestyle', description: 'Life, health, and wellness', slug: 'lifestyle' },
-            { name: 'Food', description: 'Recipes, restaurants, and culinary experiences', slug: 'food' },
-            { name: 'Business', description: 'Business insights and entrepreneurship', slug: 'business' },
-            { name: 'Art & Culture', description: 'Art, music, and cultural topics', slug: 'art-culture' },
-            { name: 'Science', description: 'Scientific discoveries and explanations', slug: 'science' }
-          ];
-
-          const token = localStorage.getItem('access_token');
-          const config = {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            }
-          };
-
-          try {
-            const createdCategories = await Promise.all(
-              defaultCategories.map(category => 
-                axios.post('http://localhost:8000/api/categories/', category, config)
-              )
-            );
-            setCategories(createdCategories.map(response => response.data));
-          } catch (error) {
-            console.error('Error creating default categories:', error);
-            // If creating defaults fails, still try to use any existing categories
-            const existingResponse = await axios.get('http://localhost:8000/api/categories/');
-            setCategories(existingResponse.data);
-          }
-        } else {
-          setCategories(response.data);
-        }
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-        setError('Error loading categories. Please try again.');
+        const response = await api.get('/categories/');
+        setCategories(response.data);
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+        setError('Failed to load categories. Please try again later.');
       }
     };
 
     const fetchTags = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/api/tags/');
+        const response = await api.get('/tags/');
         setTags(response.data);
       } catch (error) {
         console.error('Error fetching tags:', error);
@@ -116,14 +81,7 @@ const PostForm = () => {
       const fetchPost = async () => {
         try {
           setLoading(true);
-          const token = localStorage.getItem('access_token');
-          const config = {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            }
-          };
-          const response = await axios.get(`http://localhost:8000/api/posts/${id}/`, config);
+          const response = await api.get(`/posts/${id}/`);
           const post = response.data;
           
           // Check if the current user is the author
@@ -137,15 +95,15 @@ const PostForm = () => {
             title: post.title,
             content: post.content,
             excerpt: post.excerpt || '',
-            category: post.category ? post.category.id : '',
+            category: post.category,
             tags: post.tags.map(tag => tag.id),
             status: post.status,
             visibility: post.visibility,
             featured_image: null,
           });
-        } catch (error) {
-          console.error('Error fetching post:', error);
-          setError('Error fetching post. Please try again.');
+        } catch (err) {
+          console.error('Error fetching post:', err);
+          setError('Failed to load post. Please try again later.');
           navigate('/my-posts');
         } finally {
           setLoading(false);
@@ -178,14 +136,6 @@ const PostForm = () => {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('access_token');
-      const config = {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        }
-      };
-
       const formDataToSend = new FormData();
       formDataToSend.append('title', formData.title);
       formDataToSend.append('content', formData.content);
@@ -205,28 +155,29 @@ const PostForm = () => {
 
       let response;
       if (id) {
-        // Update existing post
-        response = await axios.put(`http://localhost:8000/api/posts/${id}/`, formDataToSend, config);
+        response = await api.put(`/posts/${id}/`, formDataToSend);
         setSuccess('Post updated successfully!');
       } else {
-        // Create new post
-        response = await axios.post('http://localhost:8000/api/posts/', formDataToSend, config);
+        response = await api.post('/posts/', formDataToSend);
         setSuccess('Post created successfully!');
       }
 
-      // Redirect to the post page after a short delay
-      setTimeout(() => {
-        if (id) {
-          // If editing an existing post, go to that post
-          navigate(`/blog/${response.data.id}`);
+      navigate(`/post/${response.data.id}`);
+    } catch (err) {
+      console.error('Error saving post:', err);
+      if (err.response?.data) {
+        const errorData = err.response.data;
+        if (typeof errorData === 'object') {
+          const errorMessages = Object.entries(errorData)
+            .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+            .join('\n');
+          setError(errorMessages);
         } else {
-          // If creating a new post, go to My Posts page
-          navigate('/my-posts');
+          setError(errorData.message || 'Failed to save post. Please try again.');
         }
-      }, 1500);
-    } catch (error) {
-      console.error('Error saving post:', error);
-      setError(error.response?.data?.detail || 'Error saving post. Please try again.');
+      } else {
+        setError('Failed to save post. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -240,22 +191,10 @@ const PostForm = () => {
         return;
       }
 
-      const token = localStorage.getItem('access_token');
-      const categoryData = {
+      const response = await api.post('/categories/', {
         ...newCategory,
         slug: newCategory.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-      };
-
-      const response = await axios.post(
-        'http://localhost:8000/api/categories/',
-        categoryData,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          }
-        }
-      );
+      });
 
       // Add the new category to the list and select it
       setCategories(prev => [...prev, response.data]);
@@ -270,11 +209,9 @@ const PostForm = () => {
 
   if (loading && id) {
     return (
-      <Container maxWidth="md">
-        <Box sx={{ py: 4, textAlign: 'center' }}>
-          <Typography>Loading...</Typography>
-        </Box>
-      </Container>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <CircularProgress />
+      </Box>
     );
   }
 
@@ -296,7 +233,7 @@ const PostForm = () => {
           </Typography>
           
           {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
+            <Alert severity="error" sx={{ mb: 3, whiteSpace: 'pre-line' }}>
               {error}
             </Alert>
           )}
@@ -319,6 +256,7 @@ const PostForm = () => {
                   value={formData.title}
                   onChange={handleChange}
                   variant="outlined"
+                  disabled={loading}
                 />
               </Grid>
               
@@ -334,6 +272,7 @@ const PostForm = () => {
                   onChange={handleChange}
                   helperText="A short summary of your post"
                   variant="outlined"
+                  disabled={loading}
                 />
               </Grid>
               
@@ -349,6 +288,7 @@ const PostForm = () => {
                   value={formData.content}
                   onChange={handleChange}
                   variant="outlined"
+                  disabled={loading}
                 />
               </Grid>
               
@@ -361,6 +301,7 @@ const PostForm = () => {
                     value={formData.category}
                     onChange={handleChange}
                     label="Category"
+                    disabled={loading}
                   >
                     <MenuItem value="">
                       <em>Select a category</em>
@@ -404,6 +345,7 @@ const PostForm = () => {
                     value={formData.visibility}
                     label="Visibility"
                     onChange={handleChange}
+                    disabled={loading}
                   >
                     <MenuItem value="public">Public</MenuItem>
                     <MenuItem value="private">Private</MenuItem>
@@ -421,6 +363,7 @@ const PostForm = () => {
                     value={formData.status}
                     label="Status"
                     onChange={handleChange}
+                    disabled={loading}
                   >
                     <MenuItem value="draft">Draft</MenuItem>
                     <MenuItem value="published">Published</MenuItem>
@@ -433,7 +376,8 @@ const PostForm = () => {
                   component="label"
                   variant="outlined"
                   startIcon={<CloudUploadIcon />}
-                  sx={{ height: '56px', width: '100%' }}
+                  sx={{ height: '56px', width: '100%', mt: 2 }}
+                  disabled={loading}
                 >
                   {formData.featured_image ? 'Change Image' : 'Upload Featured Image'}
                   <input
@@ -466,7 +410,13 @@ const PostForm = () => {
                 variant="contained"
                 disabled={loading}
               >
-                {loading ? 'Saving...' : id ? 'Update Post' : 'Create Post'}
+                {loading ? (
+                  <CircularProgress size={24} />
+                ) : id ? (
+                  'Update Post'
+                ) : (
+                  'Create Post'
+                )}
               </Button>
             </Stack>
           </Box>
@@ -485,6 +435,7 @@ const PostForm = () => {
               error={!!categoryError}
               helperText={categoryError}
               required
+              disabled={loading}
             />
             <TextField
               fullWidth
@@ -493,12 +444,13 @@ const PostForm = () => {
               onChange={(e) => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
               multiline
               rows={3}
+              disabled={loading}
             />
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenCategoryDialog(false)}>Cancel</Button>
-          <Button onClick={handleCreateCategory} variant="contained" color="primary">
+          <Button onClick={handleCreateCategory} variant="contained" color="primary" disabled={loading}>
             Create Category
           </Button>
         </DialogActions>

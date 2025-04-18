@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link as RouterLink } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Typography, 
   Box, 
@@ -20,11 +20,12 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import api from '../api/config';
 
 const Post = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,11 +36,12 @@ const Post = () => {
     const fetchPost = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:8000/api/posts/${id}/`);
+        const response = await api.get(`/posts/${id}/`);
         setPost(response.data);
-      } catch (error) {
-        console.error('Error fetching post:', error);
-        setError('Failed to load post. It may be private or no longer exists.');
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching post:', err);
+        setError('Failed to load the post. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -54,24 +56,22 @@ const Post = () => {
       return;
     }
 
+    if (!window.confirm('Are you sure you want to delete this post?')) {
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.delete(`http://localhost:8000/api/posts/${id}/`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      // Redirect to home page after successful deletion
-      window.location.href = '/';
-    } catch (error) {
-      console.error('Error deleting post:', error);
-      setError('Failed to delete post. Please try again.');
+      await api.delete(`/posts/${id}/`);
+      navigate('/blog');
+    } catch (err) {
+      console.error('Error deleting post:', err);
+      setError('Failed to delete the post. Please try again later.');
     }
   };
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
         <CircularProgress />
       </Box>
     );
@@ -79,36 +79,20 @@ const Post = () => {
 
   if (error) {
     return (
-      <Container maxWidth="md">
-        <Box sx={{ py: 4, textAlign: 'center' }}>
-          <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-          <Button 
-            component={RouterLink} 
-            to="/" 
-            startIcon={<ArrowBackIcon />}
-            variant="outlined"
-          >
-            Back to Home
-          </Button>
-        </Box>
+      <Container>
+        <Alert severity="error" sx={{ mt: 4 }}>
+          {error}
+        </Alert>
       </Container>
     );
   }
 
   if (!post) {
     return (
-      <Container maxWidth="md">
-        <Box sx={{ py: 4, textAlign: 'center' }}>
-          <Alert severity="info" sx={{ mb: 2 }}>Post not found</Alert>
-          <Button 
-            component={RouterLink} 
-            to="/" 
-            startIcon={<ArrowBackIcon />}
-            variant="outlined"
-          >
-            Back to Home
-          </Button>
-        </Box>
+      <Container>
+        <Alert severity="info" sx={{ mt: 4 }}>
+          Post not found.
+        </Alert>
       </Container>
     );
   }
@@ -183,7 +167,7 @@ const Post = () => {
                 <Tooltip title="Edit Post">
                   <IconButton 
                     component={RouterLink} 
-                    to={`/blog/edit/${post.id}`}
+                    to={`/edit-post/${post.id}`}
                     color="primary"
                     sx={{ mr: 1 }}
                   >
