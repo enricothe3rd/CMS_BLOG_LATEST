@@ -1,4 +1,5 @@
 import { createContext, useState, useContext, useEffect } from 'react';
+import api from '../api/config';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
@@ -11,11 +12,7 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem('access_token');
     if (token) {
       try {
-        const response = await axios.get('http://localhost:8000/api/user/profile/', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const response = await api.get('/user/profile/');
         setUser(response.data);
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -33,7 +30,10 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const response = await axios.post('http://localhost:8000/api/token/', {
+      // Get the backend URL from environment variables
+      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      
+      const response = await axios.post(`${BACKEND_URL}/api/token/`, {
         username,
         password,
       });

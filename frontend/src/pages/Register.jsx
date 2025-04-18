@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import api from '../api/config';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -53,7 +53,7 @@ export default function Register() {
     try {
       console.log('Sending registration request to backend...');
       // Register the user
-      const registerResponse = await axios.post('http://localhost:8000/api/register/', formData);
+      const registerResponse = await api.post('/register/', formData);
       console.log('Registration successful:', registerResponse.data);
       
       // After successful registration, automatically log in
